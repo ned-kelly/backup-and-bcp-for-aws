@@ -11,6 +11,11 @@ Infrastructure is auto-backed up and managed via "Resource Tags" (These can be d
 
 Backups may also optionally be copied from your S3 bucket to another Cloud or infrastructure provider of your choice if you are using these functions as part of your Disaster Recovery & Business Continuity Plan. If you're using Google Cloud, you should consider using the built-in sync tooling. See: [Google Cloud Storage - Creating a Transfer Job from S3 to GCS](https://cloud.google.com/storage-transfer/docs/create-manage-transfer-console).
 
+----------------------------------------
+
+**If you require assistance deploying or customising this solution or any other enterprise grade Cloud infrastructure, please feel free to reach out to me - I provide consultancy services.**
+
+
 
 ### Current Features/AWS Services Covered:
 
