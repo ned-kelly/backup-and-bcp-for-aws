@@ -1,0 +1,25 @@
+{
+  "name": "ebs-snapshots",
+  "version": "1.0.0",
+  "description": "Serverless functions to and manage AWS backups including EC2, Route53 and RDS.",
+  "author": "David Nedved",
+  "license": "MIT",
+  "scripts": {
+    "start": "serverless offline start"
+  },
+  "dependencies": {
+    "async": "2.6.1",
+    "aws-regions": "1.4.1",
+    "aws-sdk": "2.238.1",
+    "bluebird": "3.5.3",
+    "install": "^0.12.2",
+    "path": "0.12.7"
+  },
+  "devDependencies": {
+    "serverless": "1.36.3",
+    "serverless-iam-roles-per-function": "1.0.4",
+    "serverless-local-schedule": "0.1.6",
+    "serverless-offline": "3.21.1",
+    "serverless-offline-scheduler": "0.3.3"
+  }
+}

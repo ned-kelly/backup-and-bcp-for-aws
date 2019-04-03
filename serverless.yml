@@ -1,0 +1,214 @@
+# NB -- PLEASE CONFIGURE THIS BY EDITING THE `config.yml` FILE
+# Do edit the Serverless definition directly unless you know what you're doing...
+#
+####################################################################################################
+
+service: backup-tasks
+
+provider:
+  name: aws
+  region: ${file(./config.yml):AWS_REGION}
+  memorySize: 1024
+
+  # deploymentBucket should be pre-created via a tool like Terraform, and in the same region as where you are deploying the lambda function.
+  deploymentBucket: ${file(./config.yml):deploymentBucket}
+
+  # Lambda now supports timeouts of up to 15 minutes :) -- https://aws.amazon.com/about-aws/whats-new/2018/10/aws-lambda-supports-functions-that-can-run-up-to-15-minutes/
+  timeout: 900
+
+  runtime: nodejs8.10
+  profile: ${file(./config.yml):AWS_PROFILE}
+  stage: prd
+  environment:
+
+    # NB: comma's after variable read from file are the default variables...
+    region: ${file(./config.yml):AWS_REGION, 'us-east-1'}
+    AWS_PROFILE: ${file(./config.yml):AWS_PROFILE, 'default'}
+    S3_BUCKET: ${file(./config.yml):S3_BUCKET}
+    EC2_WORKER_ROLE: ${file(./config.yml):EC2_WORKER_ROLE, 'AWSBackupTasksRoleForS3'}
+    EC2_KEYPAIR_NAME: ${file(./config.yml):EC2_KEYPAIR_NAME, ''}
+    EC2_WORKER_SIZE: ${file(./config.yml):EC2_WORKER_SIZE, 'm4.large'}
+
+  iamRoleStatements:
+    - Effect: "Allow"
+      # Allow AWS X-Ray & Cloudwatch Logs permissions for all functions...
+      Action:
+        - xray:PutTelemetryRecords
+        - xray:PutTraceSegments
+        - logs:CreateLogGroup
+        - logs:CreateLogStream
+        - logs:PutLogEvents
+      Resource: "*"
+
+plugins:
+  - serverless-offline
+  - serverless-offline-scheduler
+  - serverless-iam-roles-per-function
+  - serverless-local-schedule
+
+functions:
+
+  ## Copy important tags from EC2 instances to their EBS Volumes - AWS Should pull their finger out of their a** and do this out of the box by now!...
+  copyTags:
+    handler: functions/ec2/copy-tags.handler
+    events:
+
+      # No need for a special schedule here - Copying of tags to EBS volumes should run every 15 minutes...
+      - schedule: rate(15 minutes)
+
+    # Function needs access to EC2 Tags
+    iamRoleStatementsInherit: true
+    iamRoleStatements:
+      - Effect: "Allow"
+        Action:
+          - "ec2:CreateTags"
+          - "ec2:Describe*"
+        Resource:
+          - "*"
+
+  ## Function to run daily and trigger EBS volume snapshots/cleanup...
+  snapshotVolumes:
+    handler: functions/ebs/ebs-snapshots.snapshotVolumes
+    events:
+      # Run backup each night, midnight time.
+      - schedule:
+          # ${file(./config.yml):BACKUP_SCHEDULE, 'cron(0 1 * * ? *)'}
+          rate: cron(0 1 * * ? *)
+          timezone: ${file(./config.yml):BACKUP_TIMEZONE, 'UTC'}
+
+    # Function needs access to EC2 Snapshot Management
+    iamRoleStatementsInherit: true
+    iamRoleStatements:
+      - Effect: "Allow"
+        Action:
+          - "ec2:CreateSnapshot"
+          - "ec2:DeleteSnapshot"
+          - "ec2:CreateTags"
+          - "ec2:ModifySnapshotAttribute"
+          - "ec2:ResetSnapshotAttribute"
+          - "ec2:Describe*"
+        Resource:
+          - "*"
+
+  purgeSnapshots:
+    handler: functions/ebs/ebs-snapshots.purgeSnapshots
+    events:
+      # Run backup each night, midnight time.
+      - schedule:
+          #${file(./config.yml):BACKUP_SCHEDULE, 'cron(0 1 * * ? *)'}
+          rate: cron(0 1 * * ? *)
+          timezone: ${file(./config.yml):BACKUP_TIMEZONE, 'UTC'}
+
+    iamRoleStatementsInherit: true
+    iamRoleStatements:
+      - Effect: "Allow"
+        Action:
+          - "ec2:CreateSnapshot"
+          - "ec2:DeleteSnapshot"
+          - "ec2:CreateTags"
+          - "ec2:ModifySnapshotAttribute"
+          - "ec2:ResetSnapshotAttribute"
+          - "ec2:Describe*"
+        Resource:
+          - "*"
+
+  ## Daily function to export Route53 Records and save in S3...
+  backupRoute53:
+    handler: functions/route53/cli53-backup-zones.handler
+    events:
+      # Run backup each night, midnight time.
+      - schedule:
+          # ${file(./config.yml):BACKUP_SCHEDULE, 'cron(0 1 * * ? *)'}
+          rate: cron(0 1 * * ? *)
+          timezone: ${file(./config.yml):BACKUP_TIMEZONE, 'UTC'}
+
+    # Function needs access to Route53 & the ability to upload into S3.
+    iamRoleStatementsInherit: true
+    iamRoleStatements:
+      - Effect: "Allow"
+        Action:
+          - "route53:Get*"
+          - "route53:List*"
+          - "s3:PutObject"
+          - "s3:PutObjectAcl"
+          - "s3:GetObject"
+          - "s3:GetObjectAcl"
+        Resource:
+          - "*"
+
+  ## Daily function to dump RDS RDS Databases into S3 Bucket...
+  backupRDS:
+    handler: functions/rds/scan-rds.handler
+    events:
+      # Run backup each night, midnight time.
+      - schedule:
+          # ${file(./config.yml):BACKUP_SCHEDULE, 'cron(0 1 * * ? *)'}
+          rate: cron(0 1 * * ? *)
+          timezone: ${file(./config.yml):BACKUP_TIMEZONE, 'UTC'}
+
+    # Function needs access to Route53 & the ability to upload into S3.
+    iamRoleStatementsInherit: true
+    iamRoleStatements:
+      - Effect: "Allow"
+        Action:
+          - "rds:DescribeDBInstances"
+          - "rds:ListTagsForResource"
+          - "ec2:CreateTags"
+          - "ec2:DescribeImages"
+          - "ec2:RunInstances"
+          - "iam:PassRole"
+        Resource:
+          - "*"
+
+  ## Daily function to dump any EFS Network share directories into the S3 Bucket...
+  backupEFS:
+    handler: functions/efs/scan-efs.handler
+    events:
+      # Run backup each night, midnight time.
+      - schedule:
+          # ${file(./config.yml):BACKUP_SCHEDULE, 'cron(0 1 * * ? *)'}
+          rate: cron(0 1 * * ? *)
+          timezone: ${file(./config.yml):BACKUP_TIMEZONE, 'UTC'}
+
+    # Function needs access to Route53 & the ability to upload into S3.
+    iamRoleStatementsInherit: true
+    iamRoleStatements:
+      - Effect: "Allow"
+        Action:
+
+          # There's a bug with the below permissions, and some additional actions need to be added...
+          # Due to lack of time constraints this has been parked for now and needs to be re-addressed when there is spare time.
+
+          - "*"
+
+          # - "elasticfilesystem:Describe*"
+          # - "ec2:CreateTags"
+          # - "ec2:DescribeImages"
+          # - "ec2:RunInstances"
+          # - "iam:PassRole"
+
+        Resource:
+          - "*"
+
+  ## Daily function to dump any ElastiCache Redis Databases into the S3 Bucket...
+  backupElastiCache:
+    handler: functions/elasticache/scan-elasticache.handler
+    events:
+      # Run backup each night, midnight time.
+      - schedule:
+          #${file(./config.yml):BACKUP_SCHEDULE, 'cron(0 1 * * ? *)'}
+          rate: cron(0 1 * * ? *)
+          timezone: ${file(./config.yml):BACKUP_TIMEZONE, 'UTC'}
+
+    # Function needs access to Route53 & the ability to upload into S3.
+    iamRoleStatementsInherit: true
+    iamRoleStatements:
+      - Effect: "Allow"
+        Action:
+          - "elasticache:*"
+          - "ec2:CreateTags"
+          - "ec2:DescribeImages"
+          - "ec2:RunInstances"
+          - "iam:PassRole"
+        Resource:
+          - "*"

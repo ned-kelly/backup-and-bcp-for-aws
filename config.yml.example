@@ -1,0 +1,41 @@
+## Configuration options for the Backup Functions
+##
+## What's the AWS Profile ON YOUR SYSTEM that you will use to deploy this via Serverless:
+
+# AWS_PROFILE: default
+
+## What Region will these serverless functions be deployed into.
+## Note that scripts are configured to iterate over your entire AWS account (all regions)...
+## This is just the region that the lambda functions that initiate the backups will be executed from.
+
+# AWS_REGION: ap-southeast-2
+
+## Where will the backups be stored (Excluding EBS Snapshots)
+
+S3_BUCKET: name-of-your-s3-bucket-to-store-backups-in
+
+## IAM Role Name that EC2 Instances spawned (to dump databases, ebs & efs shares etc) will use -- NB This role needs access to S3 to write/upload the files.
+## Leave this as default unless you specified a different IAM role name when you performed the IAM Roles setup step.
+
+EC2_WORKER_ROLE: AWSBackupTasksRoleForS3
+
+## The ssh key-pair name that you wish to use for any EC2 worker instances spawned by lambda - Note the keypair **MUST exist in EVERY region** that an instance is launched in.
+
+# EC2_KEYPAIR_NAME: example-keypair
+
+## The kind of instance that you would like to launch to perform the backup tasks...
+## We suggest using an instance that is AVAILABLE IN ALL AWS REGIONS if you change this!
+## By default a m4.large is run, which will cost you around $3.50 per month in backup charges assuming a backup takes less than 1 hour to run.
+
+# EC2_WORKER_SIZE: m4.large
+
+## The project is set with the ability to set the timezone that backups run.
+## By default, backups run at 1AM, UTC time. To change the timezone, you may specify using TZ Database Format:
+## The timezone may also be set with the standard Lambda cron syntax, for example: cron(0 1 * * ? *) will trigger backups at 1AM each day.
+## See: https://en.wikipedia.org/wiki/List_of_tz_database_time_zones - for the list of supported Time Zones.
+
+# BACKUP_TIMEZONE: Australia/Brisbane
+# BACKUP_SCHEDULE: cron(0 1 * * ? *)
+
+# The S3 bucket to store the serverless-deployment files in (NB this should be pre-created as part of your terraform script...)
+deploymentBucket: serverless-deployments-bucket

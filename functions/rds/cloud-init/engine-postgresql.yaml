@@ -1,0 +1,70 @@
+#cloud-config
+repo_update: true
+repo_upgrade: all
+
+packages:
+ - docker
+
+# We mount an additional volume to dump the data to - this volume should match the size of the PostgreSQL cluster.
+mounts:
+ - [ /dev/xvdc, /data, "ext4", "defaults,nofail,discard", "0", "0" ]
+
+####################################################################################################
+
+write_files:
+
+  # The following YML is for the docker-compose file to stand up the Pritunl VPN container and other ...
+  - content: |
+      #!/bin/sh
+
+      export PGPASSWORD='%%PG_PASSWORD%%'
+      PG_USER="%%PG_USERNAME%%"
+      PG_HOST="%%PG_HOST%%"
+      PG_PORT="%%PG_PORT%%"
+
+      DUMP_DIR="/data/db_dumps/$PG_HOST/$(date +%F_%H-%M-%S)"
+      mkdir -p "$DUMP_DIR"
+
+      ## Dump Globals
+      echo "Dumping globals..."
+      pg_dumpall --globals-only --no-role-password \
+        -U "$PG_USER" -p "$PG_PORT" -h "$PG_HOST" \
+        2>stderr.txt | gzip -9 > "$DUMP_DIR/pgdb_globals.sql.gz"
+
+      ## Get all databases we have access to
+      psql -h "$PG_HOST" -U "$PG_USER" -p "$PG_PORT" -t -A -c 'SELECT datname FROM pg_database' |
+          while IFS= read -r line
+          do
+              echo "Dumping: $line"
+              pg_dump -U "$PG_USER" -h "$PG_HOST" -p "$PG_PORT" "$line" 2>stderr.txt | gzip -9 > "$DUMP_DIR/$line.sql.gz"  
+          done
+
+    owner: root
+    path: /opt/dump_container_commands.sh
+
+####################################################################################################
+
+runcmd:
+
+ - sleep 60
+ - sudo usermod -a -G docker ec2-user
+
+ # AWS Mounts are not always working with latest build of amazon linux - Quick manual check the mount is actually there...
+ - mkfs.ext4 /dev/xvdc
+ - if cat /etc/fstab | grep -i "/data"; then echo "AWS Mounts found, skipping"; else sudo echo "/dev/xvdc  /data  ext4  defaults,nofail,discard  0 0" >> /etc/fstab; fi
+ - mkdir -p /data && sudo mount /data
+
+ - chmod +x /opt/dump_container_commands.sh
+ - service docker start
+
+ # We're running the latest official release of postgres here - this way we don't need to worry about forward compatibility if the PostgreSQL server is newer then our pg_dump tool...
+ - docker run -v "/opt:/opt" -v "/data:/data" postgres sh -c "/opt/dump_container_commands.sh"
+
+ # Lastly we need to sync the files to s3...
+ - aws s3 sync /data/db_dumps s3://%%S3_BUCKET%%/RDS/%%RDS_REGION%%/
+
+ # Then shutdown the instance once the dump is up in S3 -- (it will auto-terminate)
+ - shutdown -P now
+
+output:
+  all: '| tee -a /var/log/cloud-init-output.log'

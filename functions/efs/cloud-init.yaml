@@ -1,0 +1,42 @@
+#cloud-config
+repo_update: true
+repo_upgrade: all
+
+####################################################################################################
+
+write_files:
+
+  # The following YML is for the docker-compose file to stand up the Pritunl VPN container and other ...
+  - content: |
+      #!/bin/bash
+
+      EFS_ID="%%EFS_ID%%"
+      EFS_NAME="%%EFS_NAME%%"
+      EFS_REGION="%%EFS_REGION%%"
+      S3_BUCKET="%%S3_BUCKET%%"
+
+      mkdir -p /efs
+
+      # Mount EFS Target to local EC2 Instance
+      mount -t nfs4 \
+          -o nfsvers=4.1,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2 \
+          $EFS_ID.efs.$EFS_REGION.amazonaws.com:/ /efs
+
+      aws s3 sync /efs/ "s3://$S3_BUCKET/EFS/$EFS_REGION/$EFS_ID ($EFS_NAME)/$(date +%F_%H-%M-%S)"
+
+    owner: root
+    path: /opt/backup_efs_commands.sh
+
+####################################################################################################
+
+runcmd:
+
+ - sleep 60
+ - chmod +x /opt/backup_efs_commands.sh
+ - /opt/backup_efs_commands.sh
+
+ # Then shutdown the instance once the dump is up in S3 -- (it will auto-terminate)
+ - shutdown -P now
+
+output:
+  all: '| tee -a /var/log/cloud-init-output.log'
