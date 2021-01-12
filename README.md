@@ -139,10 +139,11 @@ Like EC2 Instance Backups, RDS dumps are run each night and then synchronised in
 |-----------|---------------|-------------------------------------------------------------------------------|
 | Backup    | true          | Tells the script to dump every database within RDS instance to the Backups S3 Bucket. |
 | BackupConfiguration    | _JSON Object Encoded as Base64String_          | This should be a Base64 Encoded string with the Username & Password that can be used to access the database to perform a Dump (example below). |
-| ProvisionBackupDiskCapacityGB    | 100          | By default Aurora does not have 'provisioned' disk capacity, so you will need to set the default EBS volume size on the temporary EBS Backup Instance if you require more than 100GB _(100GB is the default)_ of temp storage for your SQL dumps. (This can be specified for any RDS instance type - however disk will be automatically provisioned for non-aurora databases)  |
+| ProvisionBackupDiskCapacityGB    | 100          | By default Aurora does not have 'provisioned' disk capacity, so you will need to set the default EBS volume size on the temporary EBS Backup Instance if you require more (or less) than 100GB _(100GB is the default)_ of temp storage for your SQL dumps. (This can be specified for any RDS instance type - however disk will be automatically provisioned for non-aurora databases)  |
+
 **BackupConfiguration JSON Object Example:**
 
-The `BackupConfiguration ` Tag currently accepts the following Json Keys:
+The `BackupConfiguration` Tag currently accepts the following Json Keys:
 
  * Username
  * Password
