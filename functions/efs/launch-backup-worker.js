@@ -2,10 +2,11 @@
 // Author: David Nedved.
 // ------------------------------------------------------------------------------------------------------------
 
-var awsSSHKeyName = process.env.EC2_KEYPAIR_NAME
-var iamRole = process.env.EC2_WORKER_ROLE
-var ec2WorkerSize = process.env.EC2_WORKER_SIZE
-var s3BucketName = process.env.S3_BUCKET
+var awsSSHKeyName = process.env.EC2_KEYPAIR_NAME;
+var iamRole = process.env.EC2_WORKER_ROLE;
+var ec2WorkerSize = process.env.EC2_WORKER_SIZE;
+var s3BucketName = process.env.S3_BUCKET;
+var launchWithPublicIPs = process.env.TRY_PUBLIC_IPS || true;
 
 var amazonLinux = require('../_shared/amazon-linux');
 
@@ -70,48 +71,35 @@ function launchBackupInstance(config, callback) {
         MaxCount: 1,
         KeyName: awsSSHKeyName,
         InstanceInitiatedShutdownBehavior: 'terminate', // When the scripts are finished and the instance shuts down AWS will just terminate this instance...
-        SecurityGroupIds: config.SecurityGroups, // Same security group's as the Database Instance Ideally.
-        SubnetId: config.Subnet,
         UserData: config.launchScript,
         IamInstanceProfile: {
             Name: iamRole
-        }
+        },
+        TagSpecifications: [{
+            ResourceType: "instance",
+            Tags: [{
+                Key: 'Name',
+                Value: `Automated EFS Backup Worker for: ${config.fsId}`
+            }]
+        }],
     };
 
+    // Try launch with Public IP address if variable set (otherwise assumes user has taken care of networking theirselves)...
+    if(launchWithPublicIPs) {
+        instanceParams.NetworkInterfaces = [];
+        instanceParams.NetworkInterfaces.push({
+            DeviceIndex: 0,
+            SubnetId: config.Subnet,
+            DeleteOnTermination: true,
+            AssociatePublicIpAddress: true,
+            Groups: config.SecurityGroups,
+        })
+    } else {
+        instanceParams.SecurityGroupIds = config.SecurityGroups // Same security group's as the Database Instance Ideally.
+        instanceParams.SubnetId = config.Subnet
+    }
+
     // Create a promise on an EC2 service object
-    var instancePromise = new AWS.EC2({apiVersion: '2016-11-15'}).runInstances(instanceParams).promise();
+    var instancePromise = ec2.runInstances(instanceParams).promise();
 
-    // Handle promise's fulfilled/rejected states
-    instancePromise.then(
-        function(data) {            
-            var instanceId = data.Instances[0].InstanceId;
-
-            // Add tags to the instance
-            tagParams = { Resources: [instanceId], Tags: [
-                    {
-                       Key: 'Name',
-                       Value: 'Automated EFS Backup Worker for: ' + config.fsId
-                    }
-                ]
-            };
-
-            // Create a promise on an EC2 service object
-            var tagPromise = new AWS.EC2({apiVersion: '2016-11-15'}).createTags(tagParams).promise();
-        
-            // Handle promise's fulfilled/rejected states
-            tagPromise.then(
-                function(data) {
-                    console.log("+ Backup Worker Instance Launched in: " + config.region);
-                }
-            ).catch(
-                function(err) {
-                    console.error(err, err.stack);
-                }
-            );
-        }
-    ).catch(
-        function(err) {
-            console.error(err, err.stack);
-        }
-    );
 }

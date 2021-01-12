@@ -29,6 +29,12 @@ EC2_WORKER_ROLE: AWSBackupTasksRoleForS3
 
 # EC2_WORKER_SIZE: m4.large
 
+## By default EC2 instances launched to backup RDS, EFS etc will use the exact same network configuration as their backup target...
+## Set 'TRY_PUBLIC_IPS' to true|false to try and launch the EC2 instance with a Public IP...
+## NB Instances require internet access to bootstrap... You will need to setup a HTTP Proxy and modify the attached `cloud-init` scripts if there's no Internet access.
+
+# TRY_PUBLIC_IPS: true
+
 ## The project is set with the ability to set the timezone that backups run.
 ## By default, backups run at 1AM, UTC time. To change the timezone, you may specify using TZ Database Format:
 ## The timezone may also be set with the standard Lambda cron syntax, for example: cron(0 1 * * ? *) will trigger backups at 1AM each day.
@@ -37,5 +43,5 @@ EC2_WORKER_ROLE: AWSBackupTasksRoleForS3
 # BACKUP_TIMEZONE: Australia/Brisbane
 # BACKUP_SCHEDULE: cron(0 1 * * ? *)
 
-# The S3 bucket to store the serverless-deployment files in (NB this should be pre-created as part of your terraform script...)
-deploymentBucket: serverless-deployments-bucket
+# The S3 bucket to store the serverless-deployment files in (NB this is automatically set, and should only be manually specified if already created as part of another tool - i.e. terraform script etc...)
+# deploymentBucket: serverless-deployments-bucket

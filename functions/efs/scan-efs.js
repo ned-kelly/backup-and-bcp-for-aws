@@ -18,7 +18,7 @@ module.exports.handler = function(event, context, callback) {
 
 // Loop through each AWS region and copy tags away...
 function checkRegion(region) {
- 
+
     var AWS = require('aws-sdk');
     AWS.config.update({region: region});
     var efs = new AWS.EFS();
@@ -28,13 +28,15 @@ function checkRegion(region) {
         if (err) {
 
             // The EFS service is not available in every region currently.
-            if(err.originalError.errno == 'ENOTFOUND') {
-                console.log("Skipping: " + region + ", EFS service is not provided here.");
-            } else {
-                console.log(err, err.stack);
-            }
+            try {
+                if(err.originalError.errno == 'ENOTFOUND') {
+                    console.log("Skipping: " + region + ", EFS service is not provided here.");
+                } else {
+                    console.log(err, err.stack);
+                }
+            } catch(e) {}
 
-        } else { 
+        } else {
             //console.dir(data);
             for (var i in data.FileSystems) {
                 var fs = data.FileSystems[i]
@@ -54,7 +56,7 @@ function getEFSTags(efsObject, efs, region) {
 
         if(data.Tags && data.Tags.length) {
 
-            for (var i in data.Tags) {                
+            for (var i in data.Tags) {
                 var tag = data.Tags[i]
                 if(tag.Key == "Backup") {
                     console.log("+ " + efsObject.FileSystemId + ", in " + region + " was tagged for backup.")

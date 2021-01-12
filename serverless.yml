@@ -16,7 +16,7 @@ provider:
   # Lambda now supports timeouts of up to 15 minutes :) -- https://aws.amazon.com/about-aws/whats-new/2018/10/aws-lambda-supports-functions-that-can-run-up-to-15-minutes/
   timeout: 900
 
-  runtime: nodejs8.10
+  runtime: nodejs12.x
   profile: ${file(./config.yml):AWS_PROFILE}
   stage: prd
   environment:
@@ -114,6 +114,7 @@ functions:
 
   ## Daily function to export Route53 Records and save in S3...
   backupRoute53:
+    # runtime: nodejs8.10
     handler: functions/route53/cli53-backup-zones.handler
     events:
       # Run backup each night, midnight time.
@@ -167,7 +168,8 @@ functions:
       # Run backup each night, midnight time.
       - schedule:
           # ${file(./config.yml):BACKUP_SCHEDULE, 'cron(0 1 * * ? *)'}
-          rate: cron(0 1 * * ? *)
+          # Run backup/cron every 7 days - not every day...
+          rate: cron(0 1 */7 * ? *)
           timezone: ${file(./config.yml):BACKUP_TIMEZONE, 'UTC'}
 
     # Function needs access to Route53 & the ability to upload into S3.

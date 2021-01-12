@@ -64,6 +64,7 @@ runcmd:
  - aws s3 sync /data/db_dumps s3://%%S3_BUCKET%%/RDS/%%RDS_REGION%%/
 
  # Then shutdown the instance once the dump is up in S3 -- (it will auto-terminate)
+ - sleep 30
  - shutdown -P now
 
 output:

@@ -20,21 +20,29 @@ module.exports.handler = function(event, context, callback) {
 
 // Loop through each AWS region and copy tags away...
 function checkRegion(region) {
- 
-    var AWS = require('aws-sdk');
-    AWS.config.update({region: region});
-    var rds = new AWS.RDS();
 
-    var params = {};
-    rds.describeDBInstances(params, function(err, data) {
-        if (err) console.log(err, err.stack);
+    console.log(`Checking region ${region} for RDS instances to backup`);
+    try {
 
-        for (var i in data.DBInstances) {
-            var dbInstance = data.DBInstances[i]
-            getRDSTags(dbInstance, rds, region)
-        }
+        var AWS = require('aws-sdk');
 
-    });
+        AWS.config.update({region: region});
+        var rds = new AWS.RDS();
+
+        var params = {};
+
+        rds.describeDBInstances(params, function(err, data) {
+            if (err) {
+                console.log(err, err.stack);
+            } else {
+                for (var i in data.DBInstances) {
+                    var dbInstance = data.DBInstances[i]
+                    getRDSTags(dbInstance, rds, region)
+                }
+            }
+
+        });
+    } catch(e) {}
 }
 
 function getRDSTags(instanceObject, rds, region) {
@@ -48,6 +56,10 @@ function getRDSTags(instanceObject, rds, region) {
         rds.listTagsForResource(params, function(err, data) {
             if (err) console.log(err, err.stack);
 
+            if(data.TagList !== undefined && data.TagList.length !== undefined && data.TagList.length == 0) {
+                console.log(`Instance: ${instanceObject.DBInstanceIdentifier} found, with no backup tags configured.`);
+            }
+
             if(data.TagList && data.TagList.length) {
 
                 var backupConfigObject = {}
@@ -60,7 +72,7 @@ function getRDSTags(instanceObject, rds, region) {
                             var configObject = Buffer.from(tag.Value, 'base64');
                         } catch(e) {
                             configObject = false;
-                            backupConfigObject = false;  
+                            backupConfigObject = false;
                         }
 
                         if(configObject !== false) {
@@ -96,13 +108,24 @@ function getRDSTags(instanceObject, rds, region) {
                                 console.log("WARNING: " + instanceObject.Endpoint.Address + ", was tagged for backup, but not backed up due to missing 'BackupConfiguration' tag!")
                             } else {
 
-                                if(instanceObject.Engine == "postgres") {
+                                // If there's any config set to over-ride the default provisioned disk capacity...
+                                for (var i in data.TagList) {
+                                    var tag = data.TagList[i]
+                                    if(tag.Key.toUpperCase() == "PROVISIONBACKUPDISKCAPACITYGB") {
+                                        backupConfigObject['ProvisionBackupDiskCapacityGB'] = Number(tag.Value);
+                                    }
+                                }
+                                if(instanceObject.Engine == "aurora-postgresql") backupConfigObject['aurora'] = true;
+
+                                // ---------------------------------------------
+
+                                if(instanceObject.Engine == "postgres" || instanceObject.Engine == "aurora-postgresql") {
 
                                     console.log(instanceObject.Endpoint.Address + ", tagged for backup.");
-                                    
+
                                     // Launch PostgreSQL Backup Dump Instance...
                                     enginePostgres.dump(instanceObject, region, backupConfigObject, function(response) {
-                                        console.dir(response);
+                                       console.dir(response);
                                     })
 
                                 } else if(instanceObject.Engine == "mysql") {
@@ -117,5 +140,5 @@ function getRDSTags(instanceObject, rds, region) {
                 }
             } // else - there's no tags specified specified on this rds instance...
         });
-    } 
+    }
 }

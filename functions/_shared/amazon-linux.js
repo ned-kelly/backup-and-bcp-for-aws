@@ -28,7 +28,7 @@ module.exports = {
                     Values: [
                         "hvm"
                     ]
-                }, 
+                },
                 {
                     Name: "root-device-type",
                     Values: [
@@ -56,6 +56,7 @@ module.exports = {
             var latestImageDate = new Date(Math.max.apply(null, data.Images.map(function(e) {
                 return new Date(e.CreationDate);
             })));
+
 
             data.Images.forEach(function(image) {
 

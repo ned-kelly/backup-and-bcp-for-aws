@@ -6,7 +6,7 @@ repo_upgrade: all
 
 write_files:
 
-  # The following YML is for the docker-compose file to stand up the Pritunl VPN container and other ...
+  # The following script mounts the NFS volume and then does a plain copy directly to S3 using the AWS sdk....
   - content: |
       #!/bin/bash
 
@@ -36,6 +36,7 @@ runcmd:
  - /opt/backup_efs_commands.sh
 
  # Then shutdown the instance once the dump is up in S3 -- (it will auto-terminate)
+ - sleep 30
  - shutdown -P now
 
 output:

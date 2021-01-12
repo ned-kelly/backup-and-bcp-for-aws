@@ -5,9 +5,16 @@
 
 if [ ! -f /tmp/cli53 ]; then
     if [[ "$OSTYPE" == "linux-gnu" ]]; then
-        curl -L -s -o /tmp/cli53 "https://github.com/barnybug/cli53/releases/download/0.8.12/cli53-linux-amd64" 2>&1
+
+        # CURL no longer included in node 10 and 12x on AWS Lambda...
+        CLI53_BIN="https://github.com/barnybug/cli53/releases/download/0.8.17/cli53-linux-amd64"
+        node -e 'const http = require("follow-redirects").https, fs = require("fs"); const file = fs.createWriteStream("/tmp/cli53"); const request = http.get("'$CLI53_BIN'", function(response) { response.pipe(file); });'
+
     elif [[ "$OSTYPE" == "darwin"* ]]; then
-        curl -L -s -o /tmp/cli53 "https://github.com/barnybug/cli53/releases/download/0.8.12/cli53-mac-amd64" 2>&1
+
+        # CURL no longer included in node 10 and 12x on AWS Lambda...
+        CLI53_BIN="https://github.com/barnybug/cli53/releases/download/0.8.17/cli53-mac-amd64"
+        node -e 'const http = require("follow-redirects").https, fs = require("fs"); const file = fs.createWriteStream("/tmp/cli53"); const request = http.get("'$CLI53_BIN'", function(response) { response.pipe(file); });'
     fi
 fi
 

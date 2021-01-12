@@ -22,10 +22,10 @@ Backups may also optionally be copied from your S3 bucket to another Cloud or in
 | AWS Service                       | Supported / Backed Up Via | File Format             | Comments/Description                                                                                                                                                                                                                                                                                                                   |
 |-----------------------------------|---------------------------|-------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | EC2 Instance Tags --> EBS Volumes | Lambda: NodeJS Function   | N/A                     | Copy all tags from EC2 Instance to EBS volumes & Volume Mapping Details (in all regions - _Think of this as a lightweight [Graffiti Monkey](https://github.com/Answers4AWS/graffiti-monkey)_ - It's required so that we can back up our EC2 instance EBS volumes based on whatever 'tags' are specified in the AWS management console) |
-| EBS Volume Shapshots              | Lambda: NodeJS Function   | N/A                     | Create nightly EBS backups of any EBS volumes tagged with `Backup=true` & also rotates any snapshots older than X days.                                                                                                                                                                                                                |
-| Route53                           | Lambda: cli53             | DNS Zone Files          | Backup all Route53 Records into S3 Bucket (uses [cli53](https://github.com/barnybug/cli53) to generate standard DNS zone files)                                                                                                                                                                                                        |
-| RDS                               | EC2 Worker Instance       | Gzipped SQL Dump Files  | Dumps all databases within an RDS instance to the specified S3 backup bucket (Currently PostgreSQL & MySQL are supported - Uses the latest pg_dump / mysqldup from their official docker repo's)                                                                                                                                       |
-| EFS                               | EC2 Worker Instance       | Raw Files, in S3 Bucket | Backup all EFS (Elastic File System) data in for any EFS deployments tagged with `Backup=true`, to S3 backup bucket.                                                                                                                                                                                                                   |
+| [EBS Volume Shapshots](#managing-ec2-instance-volume-backups)              | Lambda: NodeJS Function   | N/A                     | Create nightly EBS backups of any EBS volumes tagged with `Backup=true` & also rotates any snapshots older than X days.                                                                                                                                                                                                                |
+| Route53                           | Lambda: cli53             | DNS Zone Files          | Backup all Route53 Records into S3 Bucket (uses [cli53](https://github.com/barnybug/cli53) to generate standard DNS zone files) ** No config needed - Runs automatically.                                                                                                                                                                                                        |
+| [RDS](#managing-rds-dumps)                               | EC2 Worker Instance       | Gzipped SQL Dump Files  | Dumps all databases within an RDS instance to the specified S3 backup bucket (Currently PostgreSQL & MySQL are supported - Uses the latest pg_dump / mysqldup from their official docker repo's)                                                                                                                                       |
+| [EFS](#managing-efs-backups)                               | EC2 Worker Instance       | Raw Files, in S3 Bucket | Backup all EFS (Elastic File System) data in for any EFS deployments tagged with `Backup=true`, to S3 backup bucket.                                                                                                                                                                                                                   |
 
 * _EC2 Worker Instances are launched via the Lambda Backup Functions each night, and then terminated upon completion. No special configuration is required other than the base configuration below._
 
@@ -95,6 +95,7 @@ vi config.yml
 | `EC2_WORKER_SIZE`  | no       | m4.large                | The kind of instance that you would like to launch to perform the backup tasks - Suggest using an instance that is **available in all AWS regions** if you change this - By default running a single m4.large each night for less than one hour will cost you around $3.50 per month in backup charges  |
 | `BACKUP_TIMEZONE`  | no       | Australia/Brisbane      | Specify the timezone that backups will run here if you do not want them to be scheduled on UTC time.                                                                                                                                                                                                    |
 | `BACKUP_SCHEDULE`  | no       | cron(0 1 * * ? *)       | A cron style syntax may also be specified to determine how often backups should run - By default backups run daily at 1AM.                                                                                                                                                                              |
+| `TRY_PUBLIC_IPS`   | no       | true                    | Tries to launch EC2 instances that are required for backup scripts with a Public IP - This is required to bootstrap the backup process. NB If there's no public IP, then you will need to add a NAT gateway and/or ensure your subnets are Internet routable.                                           |
 
 ## Deploying
 
@@ -129,11 +130,16 @@ To backup an EC2 Instance you may simply add the following tags to the instance 
 
 Like EC2 Instance Backups, RDS dumps are run each night and then synchronised into the specified backup S3 bucket. Unlike EBS Volume Snapshots, there are no retention settings for nightly DB dumps (stored as gzipped sql files) - You will need to configure a policy on your S3 bucket.
 
+**Current Supported RDS Types**:
+
+ - PostgreSQL
+ - Aurora PostgreSQL *See Comments Below re: Aurora Config
+
 | RDS Tag   | Example Value | Description                                                                   |
 |-----------|---------------|-------------------------------------------------------------------------------|
 | Backup    | true          | Tells the script to dump every database within RDS instance to the Backups S3 Bucket. |
 | BackupConfiguration    | _JSON Object Encoded as Base64String_          | This should be a Base64 Encoded string with the Username & Password that can be used to access the database to perform a Dump (example below). |
-
+| ProvisionBackupDiskCapacityGB    | 100          | By default Aurora does not have 'provisioned' disk capacity, so you will need to set the default EBS volume size on the temporary EBS Backup Instance if you require more than 100GB _(100GB is the default)_ of temp storage for your SQL dumps. (This can be specified for any RDS instance type - however disk will be automatically provisioned for non-aurora databases)  |
 **BackupConfiguration JSON Object Example:**
 
 The `BackupConfiguration ` Tag currently accepts the following Json Keys:
@@ -172,6 +178,17 @@ If you have any Elastic Filesystem Deployments - files will be copied (via NFS) 
 
 * EFS Backups are launched using latest Amazon Linux AMI (in each region) with the same VPC, Subnet & Security Groups that are assigned to the EFS Network Mount Point. This assumes that the subnet has outbound network/internet access to S3 - If your subnet running the EFS deployment does not have outbound internet access the scripts will not work.
 
+## Troubleshooting / Common Problems
+
+ - Instances are being launched but no backups appearing in my S3 bucket...
+   - View/Check the "Instance Log"
+   - Copy the "Launch Config" (View/Change User Data in EC2 Console) and launch a new instance with the same User Data to test the functions work locally...
+   - Check the VPC that your Database/ElastiCache is in, has local Internet acces _(Instances require access to the internet to install tools required to perform the backups - If your VPC does not have internet access, you may need to add a [NAT Gateway](https://docs.aws.amazon.com/vpc/latest/userguide/vpc-nat-gateway.html))_
+
+ - Instances are not stopping/deleting after backups
+   - Try and SSH into the instance, and check that backup scripts are not still running... If you're backing up 1000's of GB's of data, it will take several hours for example, so you may only want to schedule the backups once per week.
+   - Check your Lambda Logs for any errors relating to the script(s) and/or EC2 backup instance logs for further details.
+
 
 ## Calling the Backup Functions Locally
 
@@ -194,4 +211,4 @@ serverless invoke local -f backupRDS
 
 ## Additional Considerations
 
-* Scripts do not currently take into consideration of the lifecycle of objects in your S3 bucket - Create a S3 "Lifecycle Rule" to delete files after X days or Y Months if you do not wish to indefinitely store your backups created in your S3 bucket.
+* <span style="color:red">Scripts do not currently take into consideration of the lifecycle of objects in your S3 bucket!</span> - Create a S3 "Lifecycle Rule" to delete files after X days or Y Months if you do not wish to indefinitely store your backups created in your S3 bucket or are backing up large data quantities and want to keep your bill "lean"
