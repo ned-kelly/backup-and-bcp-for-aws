@@ -12,7 +12,7 @@
     "aws-regions": "^2.2.0",
     "aws-sdk": "^2.825.0",
     "bluebird": "^3.7.2",
-    "follow-redirects": "^1.13.1",
+    "follow-redirects": "^1.14.8",
     "install": "^0.12.2",
     "path": "0.12.7"
   },
