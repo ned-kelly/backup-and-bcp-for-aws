@@ -18,7 +18,7 @@
   },
   "devDependencies": {
     "nodemon": "^2.0.7",
-    "serverless": "^1.83.2",
+    "serverless": "^3.25.1",
     "serverless-iam-roles-per-function": "^2.0.2",
     "serverless-local-schedule": "0.1.6",
     "serverless-offline": "^5.12.1",
