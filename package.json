@@ -21,7 +21,7 @@
     "serverless": "^1.83.2",
     "serverless-iam-roles-per-function": "^2.0.2",
     "serverless-local-schedule": "0.1.6",
-    "serverless-offline": "^5.12.1",
+    "serverless-offline": "^12.0.4",
     "serverless-offline-scheduler": "^0.3.8"
   }
 }
