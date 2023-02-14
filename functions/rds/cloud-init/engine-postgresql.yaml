@@ -65,7 +65,9 @@ runcmd:
 
  # Then shutdown the instance once the dump is up in S3 -- (it will auto-terminate)
  - sleep 30
- - shutdown -P now
+ # If the following command fails...
+ - (sleep 10 && shutdown now) &
+ - halt --force --poweroff
 
 output:
   all: '| tee -a /var/log/cloud-init-output.log'

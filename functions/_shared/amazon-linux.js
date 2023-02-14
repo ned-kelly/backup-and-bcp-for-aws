@@ -23,12 +23,12 @@ module.exports = {
                         "x86_64"
                     ]
                 },
-                {
-                    Name: "virtualization-type",
-                    Values: [
-                        "hvm"
-                    ]
-                },
+                // {
+                //     Name: "virtualization-type",
+                //     Values: [
+                //         "hvm"
+                //     ]
+                // },
                 {
                     Name: "root-device-type",
                     Values: [
@@ -36,17 +36,23 @@ module.exports = {
                     ]
                 },
                 {
+                    Name: "description",
+                    Values: [
+                        "Amazon Linux AMI*"
+                    ]
+                }, 
+                {
                     Name: "state",
                     Values: [
                         "available"
                     ]
                 },
-                {
-                    Name: "name",
-                    Values: [
-                        "amzn-ami-hvm-????.??.?.????????-x86_64-gp2"
-                    ]
-                }
+                // {
+                //     Name: "name",
+                //     Values: [
+                //         "amzn-ami-hvm-????.??.?.????????-x86_64-gp2"
+                //     ]
+                // }
             ]
         };
 
@@ -58,6 +64,7 @@ module.exports = {
             })));
 
 
+            // console.log('latestImageDate', latestImageDate)
             data.Images.forEach(function(image) {
 
                 // Compare using primitives date - not JS Date Object...

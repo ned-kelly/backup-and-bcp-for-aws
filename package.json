@@ -9,7 +9,7 @@
   },
   "dependencies": {
     "async": "^3.2.0",
-    "aws-regions": "^2.2.0",
+    "aws-regions": "2.3.1",
     "aws-sdk": "^2.825.0",
     "bluebird": "^3.7.2",
     "follow-redirects": "^1.13.1",
@@ -18,10 +18,10 @@
   },
   "devDependencies": {
     "nodemon": "^2.0.7",
-    "serverless": "^1.83.2",
-    "serverless-iam-roles-per-function": "^2.0.2",
-    "serverless-local-schedule": "0.1.6",
-    "serverless-offline": "^5.12.1",
-    "serverless-offline-scheduler": "^0.3.8"
+    "serverless": "3.27.0",
+    "serverless-iam-roles-per-function": "3.2.0",
+    "serverless-local-schedule": "0.1.7",
+    "serverless-offline": "12.0.4",
+    "serverless-offline-scheduler": "0.5.0"
   }
 }

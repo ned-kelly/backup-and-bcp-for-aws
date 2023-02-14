@@ -53,7 +53,6 @@ module.exports = {
 
         // Launch instance to dump the data and upload to s3 based on Amazon Linux...
         amazonLinux.getAmazonLinuxID(region, function(response) {
-
             if(response) {
                 config.ImageId = response.ImageId
                 launchBackupInstance(config, backupConfigObject, function(response) {

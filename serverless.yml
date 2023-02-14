@@ -11,7 +11,7 @@ provider:
   memorySize: 1024
 
   # deploymentBucket should be pre-created via a tool like Terraform, and in the same region as where you are deploying the lambda function.
-  deploymentBucket: ${file(./config.yml):deploymentBucket}
+  # deploymentBucket: ${file(./config.yml):deploymentBucket}
 
   # Lambda now supports timeouts of up to 15 minutes :) -- https://aws.amazon.com/about-aws/whats-new/2018/10/aws-lambda-supports-functions-that-can-run-up-to-15-minutes/
   timeout: 900
